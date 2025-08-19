@@ -1,0 +1,20 @@
+# === Secretos / Entornos ===
+front/.env
+backend/.env
+
+# === Archivos sensibles específicos ===
+backend/PHPMailer/enviar.php
+
+# === Node/React/Expo comunes ===
+front/node_modules/
+backend/node_modules/
+**/npm-debug.log*
+**/yarn*.log
+**/pnpm-debug.log
+front/.expo/
+front/.expo-shared/
+front/web-build/
+
+# === Misceláneos del SO ===
+.DS_Store
+Thumbs.db

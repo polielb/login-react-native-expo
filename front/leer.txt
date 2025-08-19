@@ -1,0 +1,86 @@
+#Configuración inicial del proyecto atenciones
+
+#Crear el proyecto base
+npx create-expo-app@latest atenciones --template blank
+cd atenciones
+
+
+npm install
+
+# Instalar dependencias para web
+npx expo install react-dom react-native-web @expo/metro-runtime
+
+# Instalar navegación
+npx expo install @react-navigation/native
+npx expo install @react-navigation/native-stack
+npx expo install react-native-screens react-native-safe-area-context
+
+npm install @react-native-async-storage/async-storage
+
+#Instalar dependencias adicionales para el proyecto
+npm install axios
+npm install @expo/vector-icons
+
+npx expo install @react-navigation/native
+npx expo install react-native-gesture-handler react-native-reanimated
+
+npm install react-native-dotenv
+
+# Comandos útiles para desarrollo
+# Iniciar el proyecto
+npm start -- --clear
+
+# Limpiar caché si hay problemas
+npm cache clean --force
+
+# Eliminar todo y reinstalar (PowerShell)
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Recurse -Force .expo
+Remove-Item -Recurse -Force web-build
+npm cache clean --force
+npm install
+npm start -- -c
+
+# Eliminar todo y reinstalar (CMD)
+rmdir /s /q node_modules
+rmdir /s /q .expo
+rmdir /s /q web-build
+npm cache clean --force
+npm install
+npm start -- --clear
+
+
+
+#Estructura de carpetas recomendada
+atenciones/
+├── src/
+│   ├── components/
+│   ├── screens/
+│   ├── services/
+│   ├── utils/
+│   └── navigation/
+├── backend/
+│   ├── api/
+│   ├── config/
+│   └── database/
+└── assets/
+
+
+# Iniciar front 
+npx expo start
+
+# limpiando la cache
+npx expo start -c
+
+
+
+  ******************** mas   ****************************** 
+
+  mklink /D C:\xampp\htdocs\atenciones\backend C:\atenciones\backend
+  
+  
+  ***************** probar cors *********************
+  # Usar la URL correcta (con backend)
+	curl -i -X OPTIONS -H "Origin: http://localhost:8081" http://localhost/backend/api/login.php
+
+	curl -i -X POST -H "Content-Type: application/json" -H "Origin: http://localhost:8081" -d '{"correo":"test@example.com","clave":"12345"}' http://localhost/backend/api/login.php
