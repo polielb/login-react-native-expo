@@ -1,5 +1,5 @@
 // ================================================================================
-// ARCHIVO: front/src/screens/LoginScreen.js - CON ENTER PARA LOGIN
+// ARCHIVO: front/src/screens/LoginScreen.js - CON MANEJO MEJORADO DE ERRORES
 // ================================================================================
 
 import React, { useState } from 'react';
@@ -23,17 +23,21 @@ const LoginScreen = ({ navigation, onLogin }) => {
   const [clave, setClave] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(''); // 🆕 Estado para mostrar errores
 
   const handleLogin = async () => {
+    // Limpiar mensaje de error previo
+    setErrorMessage('');
+
     if (!correo.trim() || !clave.trim()) {
-      Alert.alert('Error', 'Por favor ingrese correo y contraseña');
+      setErrorMessage('Por favor ingrese correo y contraseña');
       return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(correo)) {
-      Alert.alert('Error', 'Por favor ingrese un correo electrónico válido');
+      setErrorMessage('Por favor ingrese un correo electrónico válido');
       return;
     }
 
@@ -58,20 +62,45 @@ const LoginScreen = ({ navigation, onLogin }) => {
         // Verificar que onLogin esté disponible
         if (typeof onLogin === 'function') {
           console.log('✅ onLogin es una función, llamándola INMEDIATAMENTE...');
-          
-          // ⚡ SOLUCIÓN: Llamar onLogin INMEDIATAMENTE sin Alert
           onLogin(response.user);
           console.log('🚀 onLogin ejecutado exitosamente');
-          
         } else {
           console.error('❌ onLogin no es una función:', typeof onLogin);
           console.error('❌ onLogin value:', onLogin);
-          Alert.alert('Error', 'Error en la navegación. onLogin no está definido.');
+          setErrorMessage('Error en la navegación. onLogin no está definido.');
         }
       }
     } catch (error) {
       console.log('❌ Error en login:', error);
-      Alert.alert('Error', error.message || 'Error al iniciar sesión');
+      
+      // 🆕 MANEJO MEJORADO DE ERRORES
+      let errorMsg = 'Error al iniciar sesión';
+      
+      if (error.message) {
+        // Mensajes específicos según el tipo de error
+        if (error.message.includes('Credenciales inválidas') || 
+            error.message.includes('Invalid credentials') ||
+            error.message.includes('Usuario o contraseña incorrectos')) {
+          errorMsg = '❌ Usuario o contraseña incorrectos. Verifique sus datos e intente nuevamente.';
+        } else if (error.message.includes('conectar') || 
+                   error.message.includes('connection') ||
+                   error.message.includes('network')) {
+          errorMsg = '🌐 Error de conexión. Verifique su conexión a internet.';
+        } else if (error.message.includes('servidor') || 
+                   error.message.includes('server')) {
+          errorMsg = '🔧 Error del servidor. Intente nuevamente en unos momentos.';
+        } else {
+          errorMsg = `⚠️ ${error.message}`;
+        }
+      }
+      
+      setErrorMessage(errorMsg);
+      
+      // También mostrar un Alert para errores críticos
+      if (error.message && !error.message.includes('Credenciales inválidas')) {
+        Alert.alert('Error', errorMsg);
+      }
+      
     } finally {
       setLoading(false);
     }
@@ -145,13 +174,28 @@ const LoginScreen = ({ navigation, onLogin }) => {
         </View>
 
         <View style={styles.formContainer}>
-          <View style={styles.inputContainer}>
+          {/* 🆕 MENSAJE DE ERROR PROMINENTE */}
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color="#f44336" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
+          <View style={[
+            styles.inputContainer,
+            errorMessage && errorMessage.includes('correo') ? styles.inputError : null
+          ]}>
             <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Correo electrónico"
               value={correo}
-              onChangeText={setCorreo}
+              onChangeText={(text) => {
+                setCorreo(text);
+                // Limpiar error cuando el usuario empiece a escribir
+                if (errorMessage) setErrorMessage('');
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -163,14 +207,21 @@ const LoginScreen = ({ navigation, onLogin }) => {
             />
           </View>
 
-          <View style={styles.inputContainer}>
+          <View style={[
+            styles.inputContainer,
+            errorMessage && (errorMessage.includes('contraseña') || errorMessage.includes('incorrectos')) ? styles.inputError : null
+          ]}>
             <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
               ref={(input) => { this.passwordInput = input; }}
               style={[styles.input, styles.passwordInput]}
               placeholder="Contraseña"
               value={clave}
-              onChangeText={setClave}
+              onChangeText={(text) => {
+                setClave(text);
+                // Limpiar error cuando el usuario empiece a escribir
+                if (errorMessage) setErrorMessage('');
+              }}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
@@ -243,6 +294,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
               onPress={() => {
                 setCorreo('test@example.com');
                 setClave('12345');
+                setErrorMessage(''); // Limpiar errores al auto-rellenar
               }}
             >
               <Text style={styles.autoFillText}>Rellenar automáticamente</Text>
@@ -293,6 +345,24 @@ const styles = StyleSheet.create({
       elevation: 5,
     }),
   },
+  // 🆕 ESTILOS PARA MENSAJES DE ERROR
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#f44336',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+  },
+  errorText: {
+    color: '#c62828',
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+    fontWeight: '500',
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -302,6 +372,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 15,
     backgroundColor: '#f9f9f9',
+  },
+  // 🆕 ESTILO PARA INPUTS CON ERROR
+  inputError: {
+    borderColor: '#f44336',
+    borderWidth: 2,
+    backgroundColor: '#ffebee',
   },
   inputIcon: {
     marginRight: 10,

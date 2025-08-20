@@ -1,5 +1,5 @@
 // ================================================================================
-// src/services/ApiService.js - COMPATIBLE CON WEB Y MÓVIL
+// src/services/ApiService.js - COMPATIBLE CON WEB Y MÓVIL + ERRORES MEJORADOS
 // ================================================================================
 import axios from 'axios';
 import StorageService from './StorageService';
@@ -117,12 +117,69 @@ class ApiService {
       return response.data;
     } catch (error) {
       console.log('❌ Error en login:', error.response?.data);
+      
+      // 🆕 MANEJO MEJORADO DE ERRORES ESPECÍFICOS
       if (error.response) {
-        const errorMessage = error.response.data?.error || error.response.data?.message || 'Error del servidor';
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        let errorMessage = 'Error del servidor';
+        
+        switch (status) {
+          case 400:
+            errorMessage = data?.error || data?.message || 'Datos de entrada inválidos';
+            break;
+          case 401:
+            // Manejar específicamente errores de credenciales
+            if (data?.error?.includes('Credenciales') || 
+                data?.error?.includes('inválidas') ||
+                data?.error?.includes('Invalid') ||
+                data?.error?.includes('credentials') ||
+                data?.message?.includes('password') ||
+                data?.message?.includes('user')) {
+              errorMessage = 'Credenciales inválidas';
+            } else {
+              errorMessage = data?.error || data?.message || 'No autorizado';
+            }
+            break;
+          case 403:
+            errorMessage = 'Acceso denegado';
+            break;
+          case 404:
+            errorMessage = 'Servicio no encontrado. Contacte al administrador.';
+            break;
+          case 422:
+            errorMessage = data?.error || data?.message || 'Datos inválidos';
+            break;
+          case 429:
+            errorMessage = 'Demasiados intentos. Espere unos minutos e intente nuevamente.';
+            break;
+          case 500:
+            errorMessage = 'Error interno del servidor. Intente nuevamente en unos momentos.';
+            break;
+          case 502:
+          case 503:
+          case 504:
+            errorMessage = 'Servidor no disponible. Intente nuevamente en unos momentos.';
+            break;
+          default:
+            errorMessage = data?.error || data?.message || `Error del servidor (${status})`;
+            break;
+        }
+        
         throw new Error(errorMessage);
+        
       } else if (error.request) {
-        throw new Error('No se pudo conectar con el servidor. Verifica tu conexión a internet.');
+        // Error de conexión
+        if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
+          throw new Error('No se pudo conectar con el servidor. Verifica tu conexión a internet.');
+        } else if (error.code === 'TIMEOUT') {
+          throw new Error('Tiempo de espera agotado. Intente nuevamente.');
+        } else {
+          throw new Error('No se pudo conectar con el servidor. Verifica tu conexión a internet.');
+        }
       } else {
+        // Error al configurar la petición
         throw new Error('Error en la petición: ' + error.message);
       }
     }
