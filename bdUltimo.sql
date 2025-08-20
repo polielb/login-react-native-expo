@@ -34,7 +34,7 @@ CREATE TABLE `reseteo_clave` (
   UNIQUE KEY `token` (`token`),
   KEY `idx_token` (`token`),
   KEY `idx_usuario` (`usuario`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
 /*Data for the table `reseteo_clave` */
 
@@ -84,7 +84,7 @@ CREATE TABLE `sesiones` (
   KEY `idx_expiracion` (`fecha_expiracion`),
   KEY `idx_sesiones_usuario_activa` (`usuario_id`,`activa`),
   KEY `idx_sesiones_expiracion_activa` (`fecha_expiracion`,`activa`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
 /*Data for the table `sesiones` */
 
@@ -140,7 +140,7 @@ CREATE TABLE `usuarios` (
 insert  into `usuarios`(`id`,`usuario`,`correo`,`clave`,`apellidos`,`nombres`,`dni`,`mobil`,`activo`,`usu_alta`,`fecha_alta`) values 
 (1,'test','test@example.com','$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi','Prueba','Usuario','12345678','123456789',1,'','2025-08-05 12:46:36'),
 (2,'admin','admin@atencionesfsa.com','$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi','Administrador','Sistema','87654321','987654321',1,'','2025-08-05 12:46:36'),
-(3,'polielb','polielb@gmail.com','$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi','Beltran','Polidoro','11223344','1234567890',1,'','2025-08-05 12:46:36'),
+(3,'polielb','polielb@gmail.com','$2y$10$QBGgu/H3bHa07PEhLLp6vOeIQ3kaR0SRAKk2PGQlbP7TZfkRRjomC','Beltran','Polidoro','11223344','1234567890',1,'','2025-08-05 12:46:36'),
 (4,'romina','romina@clinica.com','$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi','Garcia','Romina','22334455','2345678901',1,'','2025-08-05 12:46:36'),
 (5,'juana','juana@clinica.com','$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi','Martinez','Juana','33445566','3456789012',1,'','2025-08-05 12:46:36');
 
@@ -191,6 +191,93 @@ CREATE TABLE `usuarios_relacionados` (
 insert  into `usuarios_relacionados`(`id`,`usuario_admin`,`usuario_permitido`,`activo`,`usu_alta`,`fecha_alta`) values 
 (1,'romina','juana',1,'system','2025-08-05 12:46:36'),
 (2,'polielb','admin',1,'system','2025-08-05 12:46:36');
+
+/* Trigger structure for table `sesiones` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `before_sesiones_update` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `before_sesiones_update` BEFORE UPDATE ON `sesiones` FOR EACH ROW 
+BEGIN
+    -- Insertar el registro actual (antes del cambio) en el histórico
+    INSERT INTO sesiones_hist (
+        id,
+        usuario_id,
+        token,
+        fecha_creacion,
+        fecha_expiracion,
+        ip_address,
+        user_agent,
+        activa,
+        fecha_ultimo_acceso,
+        dispositivo,
+        fecha_cierre,
+        motivo_cierre
+    ) VALUES (
+        OLD.id,
+        OLD.usuario_id,
+        OLD.token,
+        OLD.fecha_creacion,
+        OLD.fecha_expiracion,
+        OLD.ip_address,
+        OLD.user_agent,
+        OLD.activa,
+        OLD.fecha_ultimo_acceso,
+        OLD.dispositivo,
+        NOW(),
+        CASE 
+            WHEN NEW.activa = 0 AND OLD.activa = 1 THEN 'session_closed'
+            WHEN NEW.fecha_expiracion != OLD.fecha_expiracion THEN 'session_renewed'
+            WHEN NEW.fecha_ultimo_acceso != OLD.fecha_ultimo_acceso THEN 'access_updated'
+            ELSE 'data_modified'
+        END
+    );
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `sesiones` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `before_sesiones_delete` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `before_sesiones_delete` BEFORE DELETE ON `sesiones` FOR EACH ROW 
+BEGIN
+    -- Insertar el registro que se va a eliminar en el histórico
+    INSERT INTO sesiones_hist (
+        id,
+        usuario_id,
+        token,
+        fecha_creacion,
+        fecha_expiracion,
+        ip_address,
+        user_agent,
+        activa,
+        fecha_ultimo_acceso,
+        dispositivo,
+        fecha_cierre,
+        motivo_cierre
+    ) VALUES (
+        OLD.id,
+        OLD.usuario_id,
+        OLD.token,
+        OLD.fecha_creacion,
+        OLD.fecha_expiracion,
+        OLD.ip_address,
+        OLD.user_agent,
+        OLD.activa,
+        OLD.fecha_ultimo_acceso,
+        OLD.dispositivo,
+        NOW(),
+        'record_deleted'
+    );
+END */$$
+
+
+DELIMITER ;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

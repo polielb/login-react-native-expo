@@ -1,5 +1,5 @@
 // ================================================================================
-// PasswordResetScreen.js - COMPATIBLE CON WEB, ANDROID E iOS
+// PasswordResetScreen.js - CON SOPORTE PARA NAVEGACIÓN DESDE LOGIN
 // ================================================================================
 import React, { useState, useEffect } from 'react';
 import {
@@ -15,12 +15,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ApiService from '../services/ApiService';
-import AlertService from '../services/AlertService'; // ⭐ NUEVO SERVICIO
+import AlertService from '../services/AlertService';
 
 const PasswordResetScreen = ({ navigation, route }) => {
-  const { correo, usuario } = route.params;
+  const { correo, usuario, fromLogin } = route.params || {};
   const [correoField, setCorreoField] = useState(correo || '');
-  const [claveActual, setClaveActual] = useState('12345');
+  const [claveActual, setClaveActual] = useState('');
   const [nuevaClave, setNuevaClave] = useState('');
   const [confirmarClave, setConfirmarClave] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,14 +29,18 @@ const PasswordResetScreen = ({ navigation, route }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    if (usuario) {
+    if (usuario && !fromLogin) {
+      // Solo mostrar alerta si NO viene del login (es decir, viene de reseteo forzado)
       AlertService.show(
         'Reseteo de Contraseña Requerido',
         `Hola ${usuario}, necesitas configurar una nueva contraseña para continuar.`,
         [{ text: 'Entendido' }]
       );
+    } else if (fromLogin) {
+      // Si viene del login, mostrar mensaje informativo diferente
+      console.log('🔄 Usuario viene del login para cambiar contraseña voluntariamente');
     }
-  }, [usuario]);
+  }, [usuario, fromLogin]);
 
   const validateForm = () => {
     if (!correoField.trim()) {
@@ -55,11 +59,6 @@ const PasswordResetScreen = ({ navigation, route }) => {
       return false;
     }
 
-    if (claveActual !== '12345') {
-      AlertService.showError('La contraseña actual debe ser 12345');
-      return false;
-    }
-
     if (!nuevaClave.trim()) {
       AlertService.showError('Por favor ingrese la nueva contraseña');
       return false;
@@ -75,8 +74,8 @@ const PasswordResetScreen = ({ navigation, route }) => {
       return false;
     }
 
-    if (nuevaClave === '12345') {
-      AlertService.showError('La nueva contraseña no puede ser 12345');
+    if (nuevaClave === claveActual) {
+      AlertService.showError('La nueva contraseña debe ser diferente a la actual');
       return false;
     }
 
@@ -88,11 +87,11 @@ const PasswordResetScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      console.log('Iniciando proceso de reseteo para:', correoField); // Debug log
+      console.log('Iniciando proceso de reseteo para:', correoField);
       
-      const response = await ApiService.requestPasswordReset(correoField, nuevaClave);
+      const response = await ApiService.requestPasswordReset(correoField, claveActual, nuevaClave);
       
-      console.log('Respuesta del servidor:', response); // Debug log
+      console.log('Respuesta del servidor:', response);
       
       if (response.success) {
         AlertService.show(
@@ -106,21 +105,24 @@ const PasswordResetScreen = ({ navigation, route }) => {
           ]
         );
       } else {
-        // Si el servidor responde pero no es success
         const errorMessage = response.error || response.message || 'Error desconocido del servidor';
         AlertService.showError(errorMessage);
       }
     } catch (error) {
-      console.log('Error capturado en handlePasswordReset:', error); // Debug log
-      console.log('Mensaje del error:', error.message); // Debug log
+      console.log('Error capturado en handlePasswordReset:', error);
+      console.log('Mensaje del error:', error.message);
       
-      // ⭐ MOSTRAR EL MENSAJE DE ERROR CON AlertService
       AlertService.showError(
         error.message || 'Error desconocido al solicitar reseteo de contraseña'
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🆕 NUEVA FUNCIÓN: Cancelar y volver al login
+  const handleCancel = () => {
+    navigation.navigate('Login');
   };
 
   return (
@@ -131,14 +133,19 @@ const PasswordResetScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.headerContainer}>
           <Ionicons name="key" size={60} color="#FF9800" />
-          <Text style={styles.title}>Configurar Nueva Contraseña</Text>
-          {usuario && (
+          <Text style={styles.title}>
+            {fromLogin ? 'Cambiar Contraseña' : 'Configurar Nueva Contraseña'}
+          </Text>
+          {usuario && !fromLogin && (
             <Text style={styles.subtitle}>
               Usuario: {usuario}
             </Text>
           )}
           <Text style={styles.description}>
-            Configure su nueva contraseña de acceso segura
+            {fromLogin ? 
+              'Cambie su contraseña actual por una nueva' :
+              'Configure su nueva contraseña de acceso segura'
+            }
           </Text>
         </View>
 
@@ -153,7 +160,7 @@ const PasswordResetScreen = ({ navigation, route }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              editable={!correo}
+              editable={!correo} // Solo editable si no viene pre-llenado
             />
           </View>
 
@@ -161,7 +168,7 @@ const PasswordResetScreen = ({ navigation, route }) => {
             <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
               style={[styles.input, styles.passwordInput]}
-              placeholder="Contraseña actual (12345)"
+              placeholder="Contraseña actual"
               value={claveActual}
               onChangeText={setClaveActual}
               secureTextEntry={!showCurrentPassword}
@@ -226,17 +233,33 @@ const PasswordResetScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.resetButton, loading && styles.resetButtonDisabled]}
-            onPress={handlePasswordReset}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.resetButtonText}>Solicitar Cambio de Contraseña</Text>
+          {/* BOTONES DE ACCIÓN */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.resetButton, loading && styles.resetButtonDisabled]}
+              onPress={handlePasswordReset}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.resetButtonText}>
+                  {fromLogin ? 'Enviar Solicitud de Cambio' : 'Solicitar Cambio de Contraseña'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* 🆕 BOTÓN CANCELAR (solo si viene del login) */}
+            {fromLogin && (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancel}
+                disabled={loading}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
 
           <View style={styles.warningContainer}>
             <Ionicons name="warning" size={24} color="#FF9800" />
@@ -260,7 +283,7 @@ const PasswordResetScreen = ({ navigation, route }) => {
               • Mínimo 6 caracteres
             </Text>
             <Text style={styles.infoText}>
-              • No puede ser igual a "12345"
+              • Debe ser diferente a la actual
             </Text>
             <Text style={styles.infoText}>
               • Debe coincidir en ambos campos
@@ -345,6 +368,10 @@ const styles = StyleSheet.create({
     right: 15,
     padding: 5,
   },
+  // 🆕 ESTILOS PARA CONTENEDOR DE BOTONES
+  buttonContainer: {
+    gap: 10,
+  },
   resetButton: {
     backgroundColor: '#FF9800',
     borderRadius: 8,
@@ -361,6 +388,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  // 🆕 ESTILOS PARA BOTÓN CANCELAR
+  cancelButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#666',
+    borderRadius: 8,
+    height: 45,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
   },
   warningContainer: {
     marginTop: 20,

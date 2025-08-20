@@ -252,12 +252,13 @@ class ApiService {
   
   // ============ RESETEO DE CONTRASEÑA ============
   
-  static async requestPasswordReset(correo, nuevaClave) {
+  static async requestPasswordReset(correo, claveActual, nuevaClave) {
     try {
       console.log('🔄 Solicitando reseteo de contraseña para:', correo);
       
       const response = await axios.post(`${API_BASE_URL}/reset_password.php`, {
         correo,
+        claveActual,
         nuevaClave
       });
       

@@ -1,5 +1,5 @@
 // ================================================================================
-// ARCHIVO: front/src/screens/LoginScreen.js - CON MANEJO MEJORADO DE ERRORES
+// ARCHIVO: front/src/screens/LoginScreen.js - CON BOTÓN CAMBIAR CLAVE
 // ================================================================================
 
 import React, { useState } from 'react';
@@ -23,7 +23,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
   const [clave, setClave] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(''); // 🆕 Estado para mostrar errores
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleLogin = async () => {
     // Limpiar mensaje de error previo
@@ -59,25 +59,21 @@ const LoginScreen = ({ navigation, onLogin }) => {
         console.log('👤 Usuario:', response.user);
         console.log('🔑 Token recibido:', response.token?.substring(0, 16) + '...');
         
-        // Verificar que onLogin esté disponible
         if (typeof onLogin === 'function') {
           console.log('✅ onLogin es una función, llamándola INMEDIATAMENTE...');
           onLogin(response.user);
           console.log('🚀 onLogin ejecutado exitosamente');
         } else {
           console.error('❌ onLogin no es una función:', typeof onLogin);
-          console.error('❌ onLogin value:', onLogin);
           setErrorMessage('Error en la navegación. onLogin no está definido.');
         }
       }
     } catch (error) {
       console.log('❌ Error en login:', error);
       
-      // 🆕 MANEJO MEJORADO DE ERRORES
       let errorMsg = 'Error al iniciar sesión';
       
       if (error.message) {
-        // Mensajes específicos según el tipo de error
         if (error.message.includes('Credenciales inválidas') || 
             error.message.includes('Invalid credentials') ||
             error.message.includes('Usuario o contraseña incorrectos')) {
@@ -96,7 +92,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
       
       setErrorMessage(errorMsg);
       
-      // También mostrar un Alert para errores críticos
+      // Mostrar Alert solo para errores críticos (no credenciales)
       if (error.message && !error.message.includes('Credenciales inválidas')) {
         Alert.alert('Error', errorMsg);
       }
@@ -106,13 +102,38 @@ const LoginScreen = ({ navigation, onLogin }) => {
     }
   };
 
-  // 🔧 NUEVA FUNCIÓN: Para manejar Enter en el campo de contraseña
+  // 🆕 NUEVA FUNCIÓN: Manejar cambio de contraseña
+  const handlePasswordChange = () => {
+    // Limpiar error previo
+    setErrorMessage('');
+
+    // Verificar que hay email
+    if (!correo.trim()) {
+      setErrorMessage('Ingrese su correo electrónico para cambiar la contraseña');
+      return;
+    }
+    
+    // Validar formato email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(correo)) {
+      setErrorMessage('Ingrese un correo electrónico válido para cambiar la contraseña');
+      return;
+    }
+    
+    // Navegar a reseteo con el email
+    console.log('🔄 Navegando a cambio de contraseña para:', correo);
+    navigation.navigate('PasswordReset', { 
+      correo: correo,
+      fromLogin: true // Para identificar que viene del login
+    });
+  };
+
   const handlePasswordSubmit = () => {
     console.log('⚡ Enter presionado en contraseña - Iniciando login automáticamente');
     handleLogin();
   };
 
-  // Función de debug mejorada
+  // Funciones de debug (solo para desarrollo extremo)
   const handleDebugInfo = async () => {
     try {
       const token = await ApiService.getToken();
@@ -122,10 +143,8 @@ const LoginScreen = ({ navigation, onLogin }) => {
       console.log('Token actual:', token);
       console.log('Storage info:', storageInfo);
       console.log('onLogin type:', typeof onLogin);
-      console.log('onLogin value:', onLogin);
       console.log('navigation:', navigation);
       
-      // Verificar localStorage directamente
       if (typeof window !== 'undefined' && window.localStorage) {
         const directToken = localStorage.getItem('session_token');
         console.log('Token directo de localStorage:', directToken);
@@ -137,8 +156,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
         `Platform: ${storageInfo?.platform || 'N/A'}\n` +
         `Storage: ${storageInfo?.storage_type || 'N/A'}\n` +
         `onLogin: ${typeof onLogin}\n` +
-        `Navigation: ${navigation ? 'OK ✅' : 'Error ❌'}\n` +
-        `Token preview: ${token ? token.substring(0, 16) + '...' : 'No token'}`
+        `Navigation: ${navigation ? 'OK ✅' : 'Error ❌'}`
       );
     } catch (error) {
       console.error('Error en debug:', error);
@@ -146,7 +164,6 @@ const LoginScreen = ({ navigation, onLogin }) => {
     }
   };
 
-  // Función para forzar navegación (solo para testing)
   const forceNavigation = () => {
     if (typeof onLogin === 'function') {
       console.log('🧪 FORZANDO NAVEGACIÓN...');
@@ -174,7 +191,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
         </View>
 
         <View style={styles.formContainer}>
-          {/* 🆕 MENSAJE DE ERROR PROMINENTE */}
+          {/* MENSAJE DE ERROR PROMINENTE */}
           {errorMessage ? (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={20} color="#f44336" />
@@ -193,7 +210,6 @@ const LoginScreen = ({ navigation, onLogin }) => {
               value={correo}
               onChangeText={(text) => {
                 setCorreo(text);
-                // Limpiar error cuando el usuario empiece a escribir
                 if (errorMessage) setErrorMessage('');
               }}
               keyboardType="email-address"
@@ -201,7 +217,6 @@ const LoginScreen = ({ navigation, onLogin }) => {
               autoCorrect={false}
               returnKeyType="next"
               onSubmitEditing={() => {
-                // Enfocar el siguiente campo (contraseña)
                 this.passwordInput?.focus();
               }}
             />
@@ -219,14 +234,13 @@ const LoginScreen = ({ navigation, onLogin }) => {
               value={clave}
               onChangeText={(text) => {
                 setClave(text);
-                // Limpiar error cuando el usuario empiece a escribir
                 if (errorMessage) setErrorMessage('');
               }}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="go"
-              onSubmitEditing={handlePasswordSubmit}  // 🔧 AQUÍ: Enter ejecuta login
+              onSubmitEditing={handlePasswordSubmit}
             />
             <TouchableOpacity
               style={styles.eyeIcon}
@@ -240,6 +254,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
             </TouchableOpacity>
           </View>
 
+          {/* BOTÓN PRINCIPAL: INICIAR SESIÓN */}
           <TouchableOpacity
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
             onPress={handleLogin}
@@ -252,8 +267,18 @@ const LoginScreen = ({ navigation, onLogin }) => {
             )}
           </TouchableOpacity>
 
-          {/* 🔧 Botones de debug solo visible en desarrollo */}
-          {__DEV__ && (
+          {/* 🆕 BOTÓN SECUNDARIO: CAMBIAR CLAVE */}
+          <TouchableOpacity
+            style={styles.changePasswordButton}
+            onPress={handlePasswordChange}
+            disabled={loading}
+          >
+            <Ionicons name="key-outline" size={18} color="#FF9800" style={styles.changePasswordIcon} />
+            <Text style={styles.changePasswordText}>Cambiar Contraseña</Text>
+          </TouchableOpacity>
+
+          {/* 🔧 BOTONES DEBUG - SOLO EN DESARROLLO EXTREMO */}
+          {__DEV__ && false && (
             <View style={styles.debugContainer}>
               <TouchableOpacity
                 style={styles.debugButton}
@@ -294,7 +319,7 @@ const LoginScreen = ({ navigation, onLogin }) => {
               onPress={() => {
                 setCorreo('test@example.com');
                 setClave('12345');
-                setErrorMessage(''); // Limpiar errores al auto-rellenar
+                setErrorMessage('');
               }}
             >
               <Text style={styles.autoFillText}>Rellenar automáticamente</Text>
@@ -345,7 +370,7 @@ const styles = StyleSheet.create({
       elevation: 5,
     }),
   },
-  // 🆕 ESTILOS PARA MENSAJES DE ERROR
+  // ESTILOS PARA MENSAJES DE ERROR
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -373,7 +398,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: '#f9f9f9',
   },
-  // 🆕 ESTILO PARA INPUTS CON ERROR
   inputError: {
     borderColor: '#f44336',
     borderWidth: 2,
@@ -412,6 +436,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  // 🆕 ESTILOS PARA BOTÓN CAMBIAR CONTRASEÑA
+  changePasswordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff3e0',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+    borderRadius: 8,
+    height: 45,
+    marginTop: 10,
+  },
+  changePasswordIcon: {
+    marginRight: 8,
+  },
+  changePasswordText: {
+    color: '#FF9800',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // ESTILOS DEBUG (OCULTOS)
   debugContainer: {
     flexDirection: 'row',
     gap: 10,
